@@ -54,6 +54,7 @@ class BleDisconnectionError(Exception):
     """
     pass
 
+
 class BleDisconnectionFailedError(Exception):
     """
     Exception for client fails to achieve disconnected state
