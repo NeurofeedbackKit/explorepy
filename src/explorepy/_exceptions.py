@@ -54,6 +54,12 @@ class BleDisconnectionError(Exception):
     """
     pass
 
+class BleDisconnectionFailedError(Exception):
+    """
+    Exception for client fails to achieve disconnected state
+    """
+    pass
+
 
 class ExplorePyDeprecationError(Exception):
     def __init__(self, message="Explorepy support for legacy devices is deprecated.\n"
