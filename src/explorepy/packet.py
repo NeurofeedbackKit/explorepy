@@ -581,8 +581,6 @@ class Trigger(EventMarker):
                           dtype=np.dtype(np.uint32).newbyteorder("<"),
                           count=1,
                           offset=0))
-        scale = 100000 if explorepy.tools.is_explore_pro_device() else 10000
-        self.timestamp = precise_ts / scale + self._time_offset
         code = np.ndarray.item(
             np.frombuffer(bin_data,
                           dtype=np.dtype(np.uint16).newbyteorder("<"),
