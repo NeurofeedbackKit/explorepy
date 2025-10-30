@@ -8,7 +8,6 @@ from enum import IntEnum
 import numba as nb
 import numpy as np
 
-import explorepy.tools
 from explorepy._exceptions import FletcherError
 
 
@@ -576,13 +575,6 @@ class Trigger(EventMarker):
         super().__init__(timestamp, payload, time_offset)
 
     def _convert(self, bin_data):
-        precise_ts = np.ndarray.item(
-            np.frombuffer(bin_data,
-                          dtype=np.dtype(np.uint32).newbyteorder("<"),
-                          count=1,
-                          offset=0))
-        scale = 100000 if explorepy.tools.is_explore_pro_device() else 10000
-        self.timestamp = precise_ts / scale + self._time_offset
         code = np.ndarray.item(
             np.frombuffer(bin_data,
                           dtype=np.dtype(np.uint16).newbyteorder("<"),
