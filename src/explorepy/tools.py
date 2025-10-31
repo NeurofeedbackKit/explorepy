@@ -555,6 +555,8 @@ class ImpedanceMeasurement:
         if not is_explore_pro_device():
             if n_chan >= 16:
                 n_chan = 32
+        if self._calib_param is not None:
+            n_chan = self._calib_param['n_chan']
         self._filters['notch'] = ExGFilter(cutoff_freq=self._notch_freq,
                                            filter_type='notch_imp',
                                            s_rate=self._device_info['sampling_rate'],
