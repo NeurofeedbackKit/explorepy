@@ -23,8 +23,7 @@ from explorepy.command import (
 from explorepy.filters import ExGFilter
 from explorepy.packet import (
     EEG,
-    CalibrationInfo,
-    CalibrationInfo_USBC,
+    CalibrationInfoBase,
     CommandRCV,
     CommandStatus,
     DeviceInfo,
@@ -348,7 +347,7 @@ class StreamProcessor:
             self.dispatch(topic=TOPICS.env, packet=packet)
         elif isinstance(packet, EventMarker):
             self.dispatch(topic=TOPICS.marker, packet=packet)
-        elif isinstance(packet, CalibrationInfo) or isinstance(packet, CalibrationInfo_USBC):
+        elif isinstance(packet, CalibrationInfoBase):
             self.imp_calib_info = packet.get_info()
         elif not packet:
             self.is_connected = False

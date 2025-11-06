@@ -556,7 +556,32 @@ class ImpedanceMeasurement:
             if n_chan >= 16:
                 n_chan = 32
         if self._calib_param is not None:
-            n_chan = self._calib_param['n_chan']
+            try:
+                n_chan = self._calib_param['n_chan']
+            except KeyError:
+                if len(self._calib_param['slope']) > 1:
+                    # calculate impedance by ADCs
+                    logger.info('Settings up for 32 channel imp measurement..')
+                    self._filters['notch'] = []
+                    self._filters['demodulation'] = []
+                    self._filters['base_noise'] = []
+                    for i in range(4):
+                        self._filters['notch'].append(ExGFilter(cutoff_freq=self._notch_freq,
+                                                           filter_type='notch_imp',
+                                                           s_rate=self._device_info['sampling_rate'],
+                                                           n_chan=8))
+
+                        self._filters['demodulation'].append(ExGFilter(cutoff_freq=bp_freq,
+                                                                  filter_type='bandpass',
+                                                                  s_rate=self._device_info['sampling_rate'],
+                                                                  n_chan=8))
+
+                        self._filters['base_noise'].append(ExGFilter(cutoff_freq=noise_freq,
+                                                                filter_type='bandpass',
+                                                                s_rate=self._device_info['sampling_rate'],
+                                                                n_chan=8))
+                    return
+
         self._filters['notch'] = ExGFilter(cutoff_freq=self._notch_freq,
                                            filter_type='notch_imp',
                                            s_rate=self._device_info['sampling_rate'],
@@ -580,18 +605,42 @@ class ImpedanceMeasurement:
         if len(self.packet_buffer) < 16:
             return None
         else:
-            timestamp, _ = self.packet_buffer[0].get_data()
+            timestamp, data = self.packet_buffer[0].get_data()
             resized_packet = BleImpedancePacket(
                 timestamp=timestamp, payload=None)
             resized_packet.populate_packet_with_data(self.packet_buffer)
             self.packet_buffer.clear()
+            imp_packet_buffer = []
+            if data.shape[0] == 32:
+                temp_packet = None
+                ## slice packet and feed it to the filters
+                for i in range(4):
+                    sliced_packet = BleImpedancePacket(
+                        timestamp=timestamp, payload=None)
+                    sliced_packet.resize_packet(resized_packet.get_data()[1], i)
+                    temp_packet = self._filters['notch'][i].apply(
+                        input_data=sliced_packet, in_place=False)
+                    self._calib_param['noise_level'] = self._filters['base_noise'][i]. \
+                        apply(input_data=temp_packet, in_place=False).get_ptp()
+                    self._filters['demodulation'][i].apply(
+                        input_data=temp_packet, in_place=True
+                    )
+                    temp_packet.calculate_impedance(self._calib_param, index=i)
+                    temp_packet.data = temp_packet.imp_data
+                    imp_packet_buffer.append(temp_packet)
+                imp_packet = BleImpedancePacket(timestamp=timestamp, payload=None)
+                imp_packet.populate_data_1d(imp_packet_buffer)
+                imp_packet.imp_data = imp_packet.data
+
+                return imp_packet
             temp_packet = self._filters['notch'].apply(
                 input_data=resized_packet, in_place=False)
             self._calib_param['noise_level'] = self._filters['base_noise']. \
                 apply(input_data=temp_packet, in_place=False).get_ptp()
             self._filters['demodulation'].apply(
                 input_data=temp_packet, in_place=True
-            ).calculate_impedance(self._calib_param)
+            )
+            temp_packet.calculate_impedance(self._calib_param)
             return temp_packet
 
 

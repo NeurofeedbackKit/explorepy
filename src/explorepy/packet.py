@@ -43,6 +43,7 @@ class PACKET_ID(IntEnum):
     PUSHMARKER = 194
     CALIBINFO = 195
     CALIBINFO_USBC = 197
+    CALIBINFO__PRO_32 = 196
     TRIGGER_OUT = 177  # Trigger-out of Explore device
     TRIGGER_IN = 178  # Trigger-in to Explore device
     VERSION_INFO = 199
@@ -225,15 +226,19 @@ class EEG(Packet):
         }
         return status
 
-    def calculate_impedance(self, imp_calib_info):
+    def calculate_impedance(self, imp_calib_info, index=None):
         """calculate impedance with the help of impedance calibration info
 
         Args:
             imp_calib_info (dict): dictionary of impedance calibration info including slope, offset and noise level
 
         """
-        scale = imp_calib_info["slope"]
-        offset = imp_calib_info["offset"]
+        if index is None:
+            scale = imp_calib_info["slope"]
+            offset = imp_calib_info["offset"]
+        else:
+            scale = imp_calib_info["slope"][index]
+            offset = imp_calib_info["offset"][index]
         self.imp_data = np.round(
             (self.get_ptp()
              - imp_calib_info["noise_level"]) * scale / 1.0e6 - offset,
@@ -731,6 +736,29 @@ class CalibrationInfo(CalibrationInfoBase):
 class CalibrationInfo_USBC(CalibrationInfoBase):
     def _convert(self, bin_data):
         super()._convert(bin_data, offset_multiplier=0.01)
+        print('############## slope: {}'.format(self.slope))
+        print('############## offset: {}'.format(self.offset))
+
+class CalibrationInfoPro32(CalibrationInfoBase):
+    def _convert(self, bin_data, offset_multiplier=0.01):
+        self.slope = []
+        self.offset = []
+        for i in range(4):
+            slope = np.frombuffer(bin_data,
+                                  dtype=np.dtype(np.uint16).newbyteorder("<"),
+                                  count=1,
+                                  offset=i * 4).item()
+            print('iteration: {}'.format(i))
+
+            print('slope: {}'.format(slope))
+            self.slope.append(slope * 10.0)
+            offset = np.frombuffer(bin_data,
+                                   dtype=np.dtype(np.uint16).newbyteorder("<"),
+                                   count=1,
+                                   offset=i * 4 + 2).item()
+            print('offset: {}'.format(offset))
+            self.offset.append(offset * offset_multiplier)
+
 
 
 class BleImpedancePacket(EEG98_USBC):
@@ -750,6 +778,20 @@ class BleImpedancePacket(EEG98_USBC):
             else:
                 data_array = np.concatenate((data_array, data), axis=1)
         self.data = data_array
+
+    def resize_packet(self, full_data, index):
+        self.data = full_data[index * 8: index * 8 + 8, :]
+
+    def populate_data_1d(self, ble_packet_list):
+        data_array = None
+        for i in range(len(ble_packet_list)):
+            _, data = ble_packet_list[i].get_data()
+            if data_array is None:
+                data_array = data
+            else:
+                data_array = np.concatenate((data_array, data), axis=0)
+        self.data = data_array
+
 
 
 class VersionInfoPacket(Packet):
@@ -792,6 +834,7 @@ PACKET_CLASS_DICT = {
     PACKET_ID.CMDSTAT: CommandStatus,
     PACKET_ID.CALIBINFO: CalibrationInfo,
     PACKET_ID.CALIBINFO_USBC: CalibrationInfo_USBC,
+    PACKET_ID.CALIBINFO__PRO_32: CalibrationInfoPro32,
     PACKET_ID.PUSHMARKER: PushButtonMarker,
     PACKET_ID.TRIGGER_IN: TriggerIn,
     PACKET_ID.TRIGGER_OUT: TriggerOut,
