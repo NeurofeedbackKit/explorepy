@@ -110,13 +110,10 @@ class SettingsManager:
         self.load_current_settings()
         for key, value in device_info_dict_update.items():
             self.settings_dict[key] = value
-        print(device_info_dict_update)
-        # 'firmware_version': '7.6.0'
         ch_count = -1
         if self.firmware_version_key in device_info_dict_update:
             fw = device_info_dict_update[self.firmware_version_key]
             major = fw.split(".")[0]
-            ch_count = 8
             if major in self._fw_ch_count:
                 ch_count = self._fw_ch_count[major]
         if ch_count == -1:
