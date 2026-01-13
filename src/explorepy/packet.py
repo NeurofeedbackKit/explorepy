@@ -242,7 +242,7 @@ class EEG(Packet):
         self.imp_data = np.round(
             (self.get_ptp()
              - imp_calib_info["noise_level"]) * scale / 1.0e6 - offset,
-            decimals=0,
+            decimals=2,
         )
 
     def get_data(self, exg_fs=None):
@@ -736,8 +736,6 @@ class CalibrationInfo(CalibrationInfoBase):
 class CalibrationInfo_USBC(CalibrationInfoBase):
     def _convert(self, bin_data):
         super()._convert(bin_data, offset_multiplier=0.01)
-        print('############## slope: {}'.format(self.slope))
-        print('############## offset: {}'.format(self.offset))
 
 class CalibrationInfoPro32(CalibrationInfoBase):
     def _convert(self, bin_data, offset_multiplier=0.01):
@@ -748,7 +746,6 @@ class CalibrationInfoPro32(CalibrationInfoBase):
                                   dtype=np.dtype(np.uint16).newbyteorder("<"),
                                   count=1,
                                   offset=i * 4).item()
-            print('iteration: {}'.format(i))
 
             print('slope: {}'.format(slope))
             self.slope.append(slope * 10.0)
@@ -756,7 +753,6 @@ class CalibrationInfoPro32(CalibrationInfoBase):
                                    dtype=np.dtype(np.uint16).newbyteorder("<"),
                                    count=1,
                                    offset=i * 4 + 2).item()
-            print('offset: {}'.format(offset))
             self.offset.append(offset * offset_multiplier)
 
 
