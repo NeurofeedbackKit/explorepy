@@ -747,7 +747,6 @@ class CalibrationInfoPro32(CalibrationInfoBase):
                                   count=1,
                                   offset=i * 4).item()
 
-            print('slope: {}'.format(slope))
             self.slope.append(slope * 10.0)
             offset = np.frombuffer(bin_data,
                                    dtype=np.dtype(np.uint16).newbyteorder("<"),
