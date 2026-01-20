@@ -549,7 +549,7 @@ class ImpedanceMeasurement:
             4 + 2.5, self._device_info['sampling_rate'] / 4 + 5.5
         settings_manager = SettingsManager(self._device_info["device_name"])
         n_chan = settings_manager.get_channel_count()
-        if len(self._calib_param['slope']) > 1 and not self._calib_param['calibration']:
+        if isinstance(self._calib_param['slope'], list) or not self._calib_param['calibration']:
             # calculate impedance by ADCs
             logger.info('Settings up for 32 channel imp measurement..')
             self._filters['notch'] = []
