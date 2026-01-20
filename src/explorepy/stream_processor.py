@@ -448,11 +448,16 @@ class StreamProcessor:
         self.start_cmd_process_thread()
         return self._device_configurator.change_setting(cmd)
 
-    def imp_initialize(self, notch_freq):
+    def imp_initialize(self, notch_freq, calibration=False):
         """Activate impedance mode in the device"""
         logger.info("Starting impedance measurement mode...")
         cmd = ZMeasurementEnable()
         if self.configure_device(cmd):
+            settings_mgr = SettingsManager(self.device_info["device_name"])
+            if calibration:
+                self.imp_calib_info['calibration'] = True
+            else:
+                self.imp_calib_info['calibration']= False
             self.imp_calculator = ImpedanceMeasurement(device_info=self.device_info,
                                                        calib_param=self.imp_calib_info,
                                                        notch_freq=notch_freq)
