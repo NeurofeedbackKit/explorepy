@@ -543,64 +543,42 @@ class ImpedanceMeasurement:
         self.packet_buffer = []
 
     def _add_filters(self):
-        bp_freq = self._device_info['sampling_rate'] / 4 - \
-            1.5, self._device_info['sampling_rate'] / 4 + 1.5
-        noise_freq = self._device_info['sampling_rate'] / \
-            4 + 2.5, self._device_info['sampling_rate'] / 4 + 5.5
+        s_rate = 250
+        center = s_rate / 4
+
+        bp_freq = (center - 1.5, center + 1.5)
+        noise_freq = (center + 2.5, center + 5.5)
+
         settings_manager = SettingsManager(self._device_info["device_name"])
         n_chan = settings_manager.get_channel_count()
-        self.adc_count = int(n_chan / 8)
+        self.adc_count = n_chan // 8
+
+        def make_filter(filter_type, cutoff, channels):
+            return ExGFilter(
+                cutoff_freq=cutoff,
+                filter_type=filter_type,
+                s_rate=s_rate,
+                n_chan=channels,
+            )
+
         if not self._calib_param['calibration']:
-            # calculate impedance by ADCs
-            logger.info('Settings up for 32 channel imp measurement..')
-            self._filters['notch'] = []
-            self._filters['demodulation'] = []
-            self._filters['base_noise'] = []
 
-            for i in range(self.adc_count):
-                self._filters['notch'].append(
-                    ExGFilter(
-                        cutoff_freq=self._notch_freq,
-                        filter_type='notch_imp',
-                        s_rate=self._device_info['sampling_rate'],
-                        n_chan=8,
-                    )
-                )
-
-                self._filters['demodulation'].append(
-                    ExGFilter(
-                        cutoff_freq=bp_freq,
-                        filter_type='bandpass',
-                        s_rate=self._device_info['sampling_rate'],
-                        n_chan=8,
-                    )
-                )
-
-                self._filters['base_noise'].append(
-                    ExGFilter(
-                        cutoff_freq=noise_freq,
-                        filter_type='bandpass',
-                        s_rate=self._device_info['sampling_rate'],
-                        n_chan=8,
-                    )
-                )
-
-            return
+            self._filters['notch'] = [
+                make_filter('notch_imp', self._notch_freq, 8)
+                for _ in range(self.adc_count)
+            ]
+            self._filters['demodulation'] = [
+                make_filter('bandpass', bp_freq, 8)
+                for _ in range(self.adc_count)
+            ]
+            self._filters['base_noise'] = [
+                make_filter('bandpass', noise_freq, 8)
+                for _ in range(self.adc_count)
+            ]
         else:
-            self._filters['notch'] = ExGFilter(cutoff_freq=self._notch_freq,
-                                               filter_type='notch_imp',
-                                               s_rate=self._device_info['sampling_rate'],
-                                               n_chan=n_chan)
-
-            self._filters['demodulation'] = ExGFilter(cutoff_freq=bp_freq,
-                                                      filter_type='bandpass',
-                                                      s_rate=self._device_info['sampling_rate'],
-                                                      n_chan=n_chan)
-
-            self._filters['base_noise'] = ExGFilter(cutoff_freq=noise_freq,
-                                                    filter_type='bandpass',
-                                                    s_rate=self._device_info['sampling_rate'],
-                                                    n_chan=n_chan)
+            self._filters['notch'] = make_filter('notch_imp', self._notch_freq, n_chan)
+            self._filters['demodulation'] = make_filter('bandpass', bp_freq, n_chan)
+            self._filters['base_noise'] = make_filter('bandpass', noise_freq, n_chan)
 
     def measure_imp(self, packet):
         """Compute electrode impedances
@@ -640,15 +618,6 @@ class ImpedanceMeasurement:
                 imp_packet.imp_data = imp_packet.data
 
                 return imp_packet
-            temp_packet = self._filters['notch'].apply(
-                input_data=resized_packet, in_place=False)
-            self._calib_param['noise_level'] = self._filters['base_noise']. \
-                apply(input_data=temp_packet, in_place=False).get_ptp()
-            self._filters['demodulation'].apply(
-                input_data=temp_packet, in_place=True
-            )
-            temp_packet.calculate_impedance(self._calib_param)
-            return temp_packet
 
 
 def find_free_port():

@@ -242,7 +242,7 @@ class EEG(Packet):
         self.imp_data = np.round(
             (self.get_ptp()
              - imp_calib_info["noise_level"]) * scale / 1.0e6 - offset,
-            decimals=2,
+            decimals=0,
         )
 
     def get_data(self, exg_fs=None):
@@ -707,54 +707,57 @@ class CommandStatus(Packet):
 
 
 class CalibrationInfoBase(Packet):
-    @abc.abstractmethod
-    def _convert(self, bin_data, offset_multiplier=0.001):
+    """Base class for calibration packets"""
+
+    channels = 1
+    offset_multiplier = 0.001
+
+    def __init__(self, timestamp, payload, time_offset=0):
+        # Must exist before Packet.__init__ calls _convert()
         self.slope = []
         self.offset = []
+        super().__init__(timestamp, payload, time_offset)
 
-        slope = np.frombuffer(bin_data,
-                              dtype=np.dtype(np.uint16).newbyteorder("<"),
-                              count=1,
-                              offset=0).item()
-        self.slope.append(slope * 10.0)
-        offset = np.frombuffer(bin_data,
-                               dtype=np.dtype(np.uint16).newbyteorder("<"),
-                               count=1,
-                               offset=2).item()
-        self.offset.append(offset * offset_multiplier)
+    def _convert(self, bin_data):
+        dtype_u16 = np.dtype("<u2")
+
+        for i in range(self.channels):
+            base = i * 4
+
+            slope = np.frombuffer(
+                bin_data,
+                dtype=dtype_u16,
+                count=1,
+                offset=base
+            ).item()
+            self.slope.append(slope * 10.0)
+
+            offset = np.frombuffer(
+                bin_data,
+                dtype=dtype_u16,
+                count=1,
+                offset=base + 2
+            ).item()
+            self.offset.append(offset * self.offset_multiplier)
 
     def get_info(self):
-        """Get calibration info"""
         return {"slope": self.slope, "offset": self.offset}
 
     def __str__(self):
-        return "calibration info: slope = " + str(self.slope) + "\toffset = " + str(self.offset)
+        return f"calibration info: slope = {self.slope}\toffset = {self.offset}"
 
 
 class CalibrationInfo(CalibrationInfoBase):
-    def _convert(self, bin_data):
-        super()._convert(bin_data, offset_multiplier=0.001)
+    offset_multiplier = 0.001
 
 
 class CalibrationInfo_USBC(CalibrationInfoBase):
-    def _convert(self, bin_data):
-        super()._convert(bin_data, offset_multiplier=0.01)
+    offset_multiplier = 0.01
 
 
-class CalibrationInfoPro32(CalibrationInfoBase):
-    def _convert(self, bin_data, offset_multiplier=0.01):
-        for i in range(4):
-            slope = np.frombuffer(bin_data,
-                                  dtype=np.dtype(np.uint16).newbyteorder("<"),
-                                  count=1,
-                                  offset=i * 4).item()
-
-            self.slope.append(slope * 10.0)
-            offset = np.frombuffer(bin_data,
-                                   dtype=np.dtype(np.uint16).newbyteorder("<"),
-                                   count=1,
-                                   offset=i * 4 + 2).item()
-            self.offset.append(offset * offset_multiplier)
+class CalibrationInfoPro(CalibrationInfoBase):
+    channels = 4
+    offset_multiplier = 0.01
 
 
 class BleImpedancePacket(EEG98_USBC):
@@ -829,7 +832,7 @@ PACKET_CLASS_DICT = {
     PACKET_ID.CMDSTAT: CommandStatus,
     PACKET_ID.CALIBINFO: CalibrationInfo,
     PACKET_ID.CALIBINFO_USBC: CalibrationInfo_USBC,
-    PACKET_ID.CALIBINFO_PRO: CalibrationInfoPro32,
+    PACKET_ID.CALIBINFO_PRO: CalibrationInfoPro,
     PACKET_ID.PUSHMARKER: PushButtonMarker,
     PACKET_ID.TRIGGER_IN: TriggerIn,
     PACKET_ID.TRIGGER_OUT: TriggerOut,
