@@ -740,6 +740,7 @@ class CalibrationInfo_USBC(CalibrationInfoBase):
     def _convert(self, bin_data):
         super()._convert(bin_data, offset_multiplier=0.01)
 
+
 class CalibrationInfoPro32(CalibrationInfoBase):
     def _convert(self, bin_data, offset_multiplier=0.01):
         for i in range(4):
@@ -754,7 +755,6 @@ class CalibrationInfoPro32(CalibrationInfoBase):
                                    count=1,
                                    offset=i * 4 + 2).item()
             self.offset.append(offset * offset_multiplier)
-
 
 
 class BleImpedancePacket(EEG98_USBC):
@@ -787,7 +787,6 @@ class BleImpedancePacket(EEG98_USBC):
             else:
                 data_array = np.concatenate((data_array, data), axis=0)
         self.data = data_array
-
 
 
 class VersionInfoPacket(Packet):

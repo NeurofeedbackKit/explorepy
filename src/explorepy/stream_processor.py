@@ -172,8 +172,8 @@ class StreamProcessor:
                 base_class = Environment
             elif isinstance(packet, EventMarker):
                 base_class = EventMarker
-            elif isinstance(packet, CalibrationInfo):
-                base_class = CalibrationInfo
+            elif isinstance(packet, CalibrationInfoBase):
+                base_class = CalibrationInfoBase
             elif isinstance(packet, PacketBIN):
                 base_class = PacketBIN
             else:
@@ -224,8 +224,8 @@ class StreamProcessor:
             self._process_marker_batch(sorted_eeg_packets)
 
         # Process calibration info packets
-        if CalibrationInfo in grouped_packets:
-            self._process_calib_info_batch(grouped_packets[CalibrationInfo])
+        if CalibrationInfoBase in grouped_packets:
+            self._process_calib_info_batch(grouped_packets[CalibrationInfoBase])
 
         # Process binary packets
         if PacketBIN in grouped_packets:
@@ -453,7 +453,6 @@ class StreamProcessor:
         logger.info("Starting impedance measurement mode...")
         cmd = ZMeasurementEnable()
         if self.configure_device(cmd):
-            settings_mgr = SettingsManager(self.device_info["device_name"])
             self.imp_calib_info['calibration'] = calibration
             self.imp_calculator = ImpedanceMeasurement(device_info=self.device_info,
                                                        calib_param=self.imp_calib_info,

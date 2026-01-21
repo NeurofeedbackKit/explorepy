@@ -549,7 +549,7 @@ class ImpedanceMeasurement:
             4 + 2.5, self._device_info['sampling_rate'] / 4 + 5.5
         settings_manager = SettingsManager(self._device_info["device_name"])
         n_chan = settings_manager.get_channel_count()
-        self.adc_count = adc_count = int(n_chan / 8)
+        self.adc_count = int(n_chan / 8)
         if not self._calib_param['calibration']:
             # calculate impedance by ADCs
             logger.info('Settings up for 32 channel imp measurement..')
@@ -558,20 +558,33 @@ class ImpedanceMeasurement:
             self._filters['base_noise'] = []
 
             for i in range(self.adc_count):
-                self._filters['notch'].append(ExGFilter(cutoff_freq=self._notch_freq,
-                                                   filter_type='notch_imp',
-                                                   s_rate=self._device_info['sampling_rate'],
-                                                   n_chan=8))
+                self._filters['notch'].append(
+                    ExGFilter(
+                        cutoff_freq=self._notch_freq,
+                        filter_type='notch_imp',
+                        s_rate=self._device_info['sampling_rate'],
+                        n_chan=8,
+                    )
+                )
 
-                self._filters['demodulation'].append(ExGFilter(cutoff_freq=bp_freq,
-                                                          filter_type='bandpass',
-                                                          s_rate=self._device_info['sampling_rate'],
-                                                          n_chan=8))
+                self._filters['demodulation'].append(
+                    ExGFilter(
+                        cutoff_freq=bp_freq,
+                        filter_type='bandpass',
+                        s_rate=self._device_info['sampling_rate'],
+                        n_chan=8,
+                    )
+                )
 
-                self._filters['base_noise'].append(ExGFilter(cutoff_freq=noise_freq,
-                                                        filter_type='bandpass',
-                                                        s_rate=self._device_info['sampling_rate'],
-                                                        n_chan=8))
+                self._filters['base_noise'].append(
+                    ExGFilter(
+                        cutoff_freq=noise_freq,
+                        filter_type='bandpass',
+                        s_rate=self._device_info['sampling_rate'],
+                        n_chan=8,
+                    )
+                )
+
             return
         else:
             self._filters['notch'] = ExGFilter(cutoff_freq=self._notch_freq,
@@ -607,7 +620,7 @@ class ImpedanceMeasurement:
             imp_packet_buffer = []
             if isinstance(self._filters['notch'], list):
                 temp_packet = None
-                ## slice packet and feed it to the filters
+                # slice packet and feed it to the filters
                 for i in range(self.adc_count):
                     sliced_packet = BleImpedancePacket(
                         timestamp=timestamp, payload=None)
