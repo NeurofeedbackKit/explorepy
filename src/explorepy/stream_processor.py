@@ -454,10 +454,7 @@ class StreamProcessor:
         cmd = ZMeasurementEnable()
         if self.configure_device(cmd):
             settings_mgr = SettingsManager(self.device_info["device_name"])
-            if calibration:
-                self.imp_calib_info['calibration'] = True
-            else:
-                self.imp_calib_info['calibration']= False
+            self.imp_calib_info['calibration'] = calibration
             self.imp_calculator = ImpedanceMeasurement(device_info=self.device_info,
                                                        calib_param=self.imp_calib_info,
                                                        notch_freq=notch_freq)
