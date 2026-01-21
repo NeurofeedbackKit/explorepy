@@ -43,7 +43,7 @@ class PACKET_ID(IntEnum):
     PUSHMARKER = 194
     CALIBINFO = 195
     CALIBINFO_USBC = 197
-    CALIBINFO__PRO_32 = 196
+    CALIBINFO_PRO = 196
     TRIGGER_OUT = 177  # Trigger-out of Explore device
     TRIGGER_IN = 178  # Trigger-in to Explore device
     VERSION_INFO = 199
@@ -829,7 +829,7 @@ PACKET_CLASS_DICT = {
     PACKET_ID.CMDSTAT: CommandStatus,
     PACKET_ID.CALIBINFO: CalibrationInfo,
     PACKET_ID.CALIBINFO_USBC: CalibrationInfo_USBC,
-    PACKET_ID.CALIBINFO__PRO_32: CalibrationInfoPro32,
+    PACKET_ID.CALIBINFO_PRO: CalibrationInfoPro32,
     PACKET_ID.PUSHMARKER: PushButtonMarker,
     PACKET_ID.TRIGGER_IN: TriggerIn,
     PACKET_ID.TRIGGER_OUT: TriggerOut,
