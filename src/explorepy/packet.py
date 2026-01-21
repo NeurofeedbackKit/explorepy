@@ -709,16 +709,19 @@ class CommandStatus(Packet):
 class CalibrationInfoBase(Packet):
     @abc.abstractmethod
     def _convert(self, bin_data, offset_multiplier=0.001):
+        self.slope = []
+        self.offset = []
+
         slope = np.frombuffer(bin_data,
                               dtype=np.dtype(np.uint16).newbyteorder("<"),
                               count=1,
                               offset=0).item()
-        self.slope = slope * 10.0
+        self.slope.append(slope * 10.0)
         offset = np.frombuffer(bin_data,
                                dtype=np.dtype(np.uint16).newbyteorder("<"),
                                count=1,
                                offset=2).item()
-        self.offset = offset * offset_multiplier
+        self.offset.append(offset * offset_multiplier)
 
     def get_info(self):
         """Get calibration info"""
@@ -739,8 +742,6 @@ class CalibrationInfo_USBC(CalibrationInfoBase):
 
 class CalibrationInfoPro32(CalibrationInfoBase):
     def _convert(self, bin_data, offset_multiplier=0.01):
-        self.slope = []
-        self.offset = []
         for i in range(4):
             slope = np.frombuffer(bin_data,
                                   dtype=np.dtype(np.uint16).newbyteorder("<"),
