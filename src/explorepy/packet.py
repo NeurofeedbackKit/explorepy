@@ -709,7 +709,7 @@ class CommandStatus(Packet):
 class CalibrationInfoBase(Packet):
     """Base class for calibration packets"""
 
-    channels = 1
+    channels = 4
     offset_multiplier = 0.001
 
     def __init__(self, timestamp, payload, time_offset=0):
@@ -720,8 +720,13 @@ class CalibrationInfoBase(Packet):
 
     def _convert(self, bin_data):
         dtype_u16 = np.dtype("<u2")
-
+        calib_pair_count = len(bin_data) // 4
         for i in range(self.channels):
+            if calib_pair_count <= i:
+                # Copy first value
+                self.slope.append(self.slope[0])
+                self.offset.append(self.offset[0])
+                continue
             base = i * 4
 
             slope = np.frombuffer(
@@ -756,7 +761,6 @@ class CalibrationInfo_USBC(CalibrationInfoBase):
 
 
 class CalibrationInfoPro(CalibrationInfoBase):
-    channels = 4
     offset_multiplier = 0.01
 
 
