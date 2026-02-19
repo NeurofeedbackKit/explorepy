@@ -438,8 +438,7 @@ class LslServer:
         self.marker_outlet = None
         self.exg_outlet = None
         self.orn_outlet = None
-        self.adc_mask = SettingsManager(
-            device_info["device_name"]).get_adc_mask()
+        self.adc_mask = SettingsManager(device_info["device_name"]).get_adc_mask()
         if len(SettingsManager(device_info["device_name"]).get_channel_names()) == len(self.adc_mask):
             self.channel_names = SettingsManager(device_info["device_name"]).get_channel_names()
         else:
@@ -544,64 +543,92 @@ class ImpedanceMeasurement:
         self.packet_buffer = []
 
     def _add_filters(self):
-        bp_freq = self._device_info['sampling_rate'] / 4 - \
-            1.5, self._device_info['sampling_rate'] / 4 + 1.5
-        noise_freq = self._device_info['sampling_rate'] / \
-            4 + 2.5, self._device_info['sampling_rate'] / 4 + 5.5
+        s_rate = 250
+        center = s_rate / 4
+
+        bp_freq = (center - 1.5, center + 1.5)
+        noise_freq = (center + 2.5, center + 5.5)
+
         settings_manager = SettingsManager(self._device_info["device_name"])
-        settings_manager.load_current_settings()
-        n_chan = settings_manager.settings_dict[settings_manager.channel_count_key]
-        # Temporary fix for 16/32 channel filters
-        if not is_explore_pro_device():
-            if n_chan >= 16:
-                n_chan = 32
-        self._filters['notch'] = ExGFilter(cutoff_freq=self._notch_freq,
-                                           filter_type='notch_imp',
-                                           s_rate=self._device_info['sampling_rate'],
-                                           n_chan=n_chan)
+        n_chan = settings_manager.get_channel_count()
+        self.adc_count = n_chan // 8
 
-        self._filters['demodulation'] = ExGFilter(cutoff_freq=bp_freq,
-                                                  filter_type='bandpass',
-                                                  s_rate=self._device_info['sampling_rate'],
-                                                  n_chan=n_chan)
+        def make_filter(filter_type, cutoff, channels):
+            return ExGFilter(
+                cutoff_freq=cutoff,
+                filter_type=filter_type,
+                s_rate=s_rate,
+                n_chan=channels,
+            )
 
-        self._filters['base_noise'] = ExGFilter(cutoff_freq=noise_freq,
-                                                filter_type='bandpass',
-                                                s_rate=self._device_info['sampling_rate'],
-                                                n_chan=n_chan)
+        if not self._calib_param['calibration']:
+
+            self._filters['notch'] = [
+                make_filter('notch_imp', self._notch_freq, 8)
+                for _ in range(self.adc_count)
+            ]
+            self._filters['demodulation'] = [
+                make_filter('bandpass', bp_freq, 8)
+                for _ in range(self.adc_count)
+            ]
+            self._filters['base_noise'] = [
+                make_filter('bandpass', noise_freq, 8)
+                for _ in range(self.adc_count)
+            ]
+        else:
+            self._filters['notch'] = make_filter('notch_imp', self._notch_freq, n_chan)
+            self._filters['demodulation'] = make_filter('bandpass', bp_freq, n_chan)
+            self._filters['base_noise'] = make_filter('bandpass', noise_freq, n_chan)
 
     def measure_imp(self, packet):
         """Compute electrode impedances
         """
+        if self._calib_param['calibration']:
+            return None
         self.packet_buffer.append(packet)
 
         if len(self.packet_buffer) < 16:
             return None
         else:
-            timestamp, _ = self.packet_buffer[0].get_data()
+            timestamp, data = self.packet_buffer[0].get_data()
             resized_packet = BleImpedancePacket(
                 timestamp=timestamp, payload=None)
             resized_packet.populate_packet_with_data(self.packet_buffer)
             self.packet_buffer.clear()
-            temp_packet = self._filters['notch'].apply(
-                input_data=resized_packet, in_place=False)
-            self._calib_param['noise_level'] = self._filters['base_noise']. \
-                apply(input_data=temp_packet, in_place=False).get_ptp()
-            self._filters['demodulation'].apply(
-                input_data=temp_packet, in_place=True
-            ).calculate_impedance(self._calib_param)
-            return temp_packet
+            imp_packet_buffer = []
+            if isinstance(self._filters['notch'], list):
+                temp_packet = None
+                # slice packet and feed it to the filters
+                for i in range(self.adc_count):
+                    sliced_packet = BleImpedancePacket(
+                        timestamp=timestamp, payload=None)
+                    sliced_packet.resize_packet(resized_packet.get_data()[1], i)
+                    temp_packet = self._filters['notch'][i].apply(
+                        input_data=sliced_packet, in_place=False)
+                    self._calib_param['noise_level'] = self._filters['base_noise'][i]. \
+                        apply(input_data=temp_packet, in_place=False).get_ptp()
+                    self._filters['demodulation'][i].apply(
+                        input_data=temp_packet, in_place=True
+                    )
+                    temp_packet.calculate_impedance(self._calib_param, index=i)
+                    temp_packet.data = temp_packet.imp_data
+                    imp_packet_buffer.append(temp_packet)
+                imp_packet = BleImpedancePacket(timestamp=timestamp, payload=None)
+                imp_packet.populate_data_1d(imp_packet_buffer)
+                imp_packet.imp_data = imp_packet.data
+
+                return imp_packet
 
 
 def find_free_port():
-    """Find a free port on the localhost
+    """Find a free port on the localhost)
+        free_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
     Returns:
         int: Port number
     """
     with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as free_socket:
         free_socket.bind(('localhost', 0))
-        free_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         port_number = free_socket.getsockname()[1]
         return port_number
 

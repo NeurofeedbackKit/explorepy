@@ -17,6 +17,7 @@ from bleak import (
 
 from explorepy._exceptions import (
     BleDisconnectionError,
+    BleDisconnectionFailedError,
     DeviceNotFoundError,
     UnexpectedConnectionError
 )
@@ -200,7 +201,22 @@ class BLEClient(BTClient):
         if self.notify_task:
             self.notify_task.cancel()
         self.read_event.set()
-        time.sleep(1)
+
+        min_time_to_wait = 0.5
+        max_time_to_wait = 5.
+        wait_start = time.time()
+        time_passed = 0.
+        if self.client is not None:
+            while self.client.is_connected:
+                time.sleep(0.1)
+                time_passed = time.time() - wait_start
+                if time_passed >= max_time_to_wait:
+                    raise BleDisconnectionFailedError(f"Bleak client still not reporting disconnected after waiting "
+                                                      f"{max_time_to_wait}.")
+        if time_passed < min_time_to_wait:
+            # Artificial delay to make the user think things are happening :)
+            time.sleep(min_time_to_wait - time_passed)
+
         self.stop_read_loop()
         self.ble_device = None
         self.buffer = Queue()
